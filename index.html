@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>검 강화 키우기: 무한의 도전</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .sword-container {
+            perspective: 1000px;
+        }
+
+        .sword-image {
+            transition: transform 0.1s ease-out, filter 0.3s ease;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+        }
+
+        .sword-image.clicked {
+            transform: scale(0.92) rotate(-3deg);
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+            border-radius: 2px;
+            animation: explode 0.6s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) rotate(var(--tr)) scale(0); opacity: 0; }
+        }
+
+        .glow-low { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)); }
+        .glow-mid { animation: pulseMid 2s infinite; }
+        .glow-high { animation: pulseHigh 1.5s infinite; }
+        .glow-god { animation: pulseGod 1s infinite; }
+
+        @keyframes pulseMid {
+            0%, 100% { filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.7)); }
+            50% { filter: drop-shadow(0 0 25px rgba(168, 85, 247, 1)); }
+        }
+        @keyframes pulseHigh {
+            0%, 100% { filter: drop-shadow(0 0 18px rgba(234, 179, 8, 0.8)); }
+            50% { filter: drop-shadow(0 0 40px rgba(234, 179, 8, 1)); }
+        }
+        @keyframes pulseGod {
+            0%, 100% { filter: drop-shadow(0 0 25px rgba(239, 68, 68, 0.9)); }
+            50% { filter: drop-shadow(0 0 60px rgba(239, 68, 68, 1)); }
+        }
+
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .svg-layer {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        .modal {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Header Stats -->
+    <div class="fixed top-0 left-0 w-full p-4 md:p-8 flex justify-between items-start z-10">
+        <div class="bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl">
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-tighter">보유 골드</p>
+            <p id="gold-display" class="text-xl md:text-3xl font-black text-yellow-400">1,000</p>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+            <div class="text-right bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl">
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-tighter">강화 등급</p>
+                <p id="level-display" class="text-xl md:text-3xl font-black text-blue-400">+0</p>
+            </div>
+            <div id="building-stat" class="hidden text-right bg-emerald-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-emerald-500 shadow-lg">
+                <p class="text-emerald-200 text-[8px] font-bold uppercase">보유 자산</p>
+                <p id="building-count" class="text-xs font-black text-white">상가 0 | 빌딩 0 | 고층 0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Area -->
+    <div class="sword-container relative flex flex-col items-center justify-center mb-6 w-full max-w-sm">
+        <div id="sword-target" class="select-none touch-none transition-transform">
+            <svg id="sword-svg" class="sword-image w-64 h-64 md:w-80 md:h-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="sword-group">
+                    <rect id="hilt" x="15" y="75" width="10" height="10" rx="2" fill="#4a3728" transform="rotate(-45 20 80)" class="svg-layer"/>
+                    <path id="guard" d="M25 75 L35 85" stroke="#71717a" stroke-width="4" stroke-linecap="round" class="svg-layer"/>
+                    <path id="blade" d="M30 70 L70 30" stroke="white" stroke-width="6" stroke-linecap="round" class="svg-layer"/>
+                    <path id="blade-core" d="M30 70 L70 30" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round" class="svg-layer"/>
+                </g>
+            </svg>
+        </div>
+        
+        <div id="sword-name" class="mt-4 text-2xl font-black tracking-tight text-center bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400">
+            평범한 연습용 목검
+        </div>
+        <div id="rank-badge" class="mt-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase bg-slate-800 text-slate-400 border border-slate-700">
+            NORMAL
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="w-full max-md space-y-3 px-4 max-w-md">
+        <div class="flex gap-3 h-28">
+            <!-- Shop Button -->
+            <button id="shop-btn" class="flex-grow-[1] bg-emerald-700 hover:bg-emerald-600 rounded-2xl border-b-4 border-emerald-900 text-center transition-all active:translate-y-1 active:border-b-0 flex flex-col items-center justify-center px-2">
+                <p class="text-[10px] font-bold text-emerald-100 uppercase">부동산 상점</p>
+                <div class="text-xl">🏢</div>
+                <p class="text-[10px] font-black text-white">자산 구매</p>
+            </button>
+
+            <!-- Enhance Button -->
+            <button id="enhance-btn" class="flex-grow-[2.5] bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 rounded-2xl font-black text-xl shadow-lg transform active:scale-[0.98] transition-all border-b-4 border-indigo-900 flex flex-col items-center justify-center">
+                <div class="flex items-center gap-2">
+                    <span>강화 시도</span>
+                    <span class="text-sm text-yellow-300 font-bold" id="cost-display">-100 G</span>
+                </div>
+                <span id="btn-chance" class="text-[10px] font-bold text-blue-200 opacity-80">(확률: 100%)</span>
+            </button>
+
+            <!-- Sell Button -->
+            <button id="sell-btn" class="flex-grow-[1.2] bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold text-slate-200 border border-slate-600 transition-all flex flex-col items-center justify-center px-2">
+                <span class="text-[10px] opacity-80 uppercase font-bold">무기 판매</span>
+                <span class="text-yellow-400 font-black text-sm" id="sell-value">+0 G</span>
+            </button>
+        </div>
+        
+        <!-- Info Stats Grid -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-center flex flex-col justify-center">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">성공 확률</p>
+                <p id="chance-display" class="text-lg font-black text-green-400">100%</p>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-center flex flex-col justify-center">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">실패 시 패널티</p>
+                <p id="penalty-display" class="text-lg font-black text-red-400">없음</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Message -->
+    <div id="log-container" class="mt-6 h-12 flex items-center justify-center text-center px-6 text-sm font-bold text-slate-400 leading-tight">
+        무기를 강화하거나 판매하여 더 높은 등급에 도전하세요!
+    </div>
+
+    <!-- Building Shop Modal -->
+    <div id="shop-modal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-white">부동산 상점</h2>
+                <button id="close-shop" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-blue-500/20 rounded-xl flex items-center justify-center text-3xl">🏪</div>
+                        <div>
+                            <p class="font-bold text-white text-lg">작은 상가</p>
+                            <p class="text-xs text-slate-400">초보 자산가의 시작</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <p class="text-yellow-400 font-black">5,000,000 G</p>
+                        <button id="buy-shop-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">구매하기</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-emerald-500/20 rounded-xl flex items-center justify-center text-3xl">🏢</div>
+                        <div>
+                            <p class="font-bold text-white text-lg">교외 소형 빌딩</p>
+                            <p class="text-xs text-slate-400">부동산 재벌로의 첫 걸음</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <p class="text-yellow-400 font-black">10,000,000 G</p>
+                        <button id="buy-building-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">구매하기</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-purple-500/20 rounded-xl flex items-center justify-center text-3xl">🏙️</div>
+                        <div>
+                            <p class="font-bold text-white text-lg">15층 고층 빌딩</p>
+                            <p class="text-xs text-slate-400">지역 랜드마크 소유주</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <p class="text-yellow-400 font-black">100,000,000 G</p>
+                        <button id="buy-highrise-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">구매하기</button>
+                    </div>
+                </div>
+            </div>
+            <p class="text-center text-[10px] text-slate-500 mt-6">최고의 자산가가 되어 도시를 소유하세요!</p>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            gold: 1000,
+            level: 0,
+            buildings: 0,
+            smallShops: 0,
+            highrises: 0,
+            ranks: [
+                { min: 0, name: "NORMAL", color: "text-slate-400", bg: "bg-slate-800" },
+                { min: 10, name: "RARE", color: "text-blue-400", bg: "bg-blue-900/30" },
+                { min: 20, name: "EPIC", color: "text-purple-400", bg: "bg-purple-900/30" },
+                { min: 30, name: "LEGEND", color: "text-yellow-400", bg: "bg-yellow-900/30" },
+                { min: 34, name: "MYTHIC", color: "text-red-400", bg: "bg-red-900/30" }
+            ],
+            swordPrefixes: [
+                "평범한", "낡은", "쓸만한", "날카로운", "정교한", 
+                "강화된", "화려한", "마법의", "빛나는", "강철의",
+                "기사의", "암살자의", "영웅의", "고대의", "유물의",
+                "달빛의", "태양의", "폭풍의", "대지의", "심연의",
+                "드래곤", "파괴의", "종말의", "창조의", "차원의",
+                "불멸의", "절대자의", "신성한", "무한의", "진정한"
+            ],
+            swordBases: ["목검", "철검", "단검", "장검", "대검", "성검", "신검", "차원도"]
+        };
+
+        const SHOP_PRICE = 5000000;
+        const BUILDING_PRICE = 10000000;
+        const HIGHRISE_PRICE = 100000000;
+
+        const goldDisplay = document.getElementById('gold-display');
+        const levelDisplay = document.getElementById('level-display');
+        const swordSvg = document.getElementById('sword-svg');
+        const swordBlade = document.getElementById('blade');
+        const bladeCore = document.getElementById('blade-core');
+        const swordName = document.getElementById('sword-name');
+        const rankBadge = document.getElementById('rank-badge');
+        const enhanceBtn = document.getElementById('enhance-btn');
+        const sellBtn = document.getElementById('sell-btn');
+        const costDisplay = document.getElementById('cost-display');
+        const sellValueDisplay = document.getElementById('sell-value');
+        const btnChance = document.getElementById('btn-chance');
+        const chanceDisplay = document.getElementById('chance-display');
+        const penaltyDisplay = document.getElementById('penalty-display');
+        const logContainer = document.getElementById('log-container');
+        
+        const shopBtn = document.getElementById('shop-btn');
+        const shopModal = document.getElementById('shop-modal');
+        const closeShop = document.getElementById('close-shop');
+        const buyBuildingBtn = document.getElementById('buy-building-btn');
+        const buyShopBtn = document.getElementById('buy-shop-btn');
+        const buyHighriseBtn = document.getElementById('buy-highrise-btn');
+        const buildingStat = document.getElementById('building-stat');
+        const buildingCount = document.getElementById('building-count');
+
+        function getEnhanceInfo(lv) {
+            let chance = Math.max(1, 100 - (lv * 3));
+            if (lv >= 34) chance = 1;
+            let cost = 100 + (lv * lv * 50);
+            let penalty = lv > 0 ? "1단계로 하락" : "없음";
+            return { chance, cost, penalty };
+        }
+
+        function getSellValue(lv) {
+            if (lv === 0) return 0;
+            let totalCumulativeCost = 0;
+            for (let i = 0; i < lv; i++) {
+                totalCumulativeCost += getEnhanceInfo(i).cost;
+            }
+            return Math.floor(totalCumulativeCost * 3);
+        }
+
+        function getSwordName(lv) {
+            let prefixIdx = Math.min(Math.floor(lv / 1.5), state.swordPrefixes.length - 1);
+            let baseIdx = Math.min(Math.floor(lv / 5), state.swordBases.length - 1);
+            return `${state.swordPrefixes[prefixIdx]} ${state.swordBases[baseIdx]}`;
+        }
+
+        // Updated formatGold to show full digits (comma separated)
+        function formatFullGold(num) {
+            return num.toLocaleString();
+        }
+
+        function updateUI() {
+            const info = getEnhanceInfo(state.level);
+            const sellVal = getSellValue(state.level);
+            
+            goldDisplay.innerText = formatFullGold(state.gold);
+            levelDisplay.innerText = `+${state.level}`;
+            chanceDisplay.innerText = `${info.chance}%`;
+            btnChance.innerText = `(확률: ${info.chance}%)`;
+            penaltyDisplay.innerText = info.penalty;
+            costDisplay.innerText = `-${info.cost.toLocaleString()} G`;
+            sellValueDisplay.innerText = `+${formatFullGold(sellVal)}`;
+            
+            swordName.innerText = getSwordName(state.level);
+            
+            const currentRank = [...state.ranks].reverse().find(r => state.level >= r.min) || state.ranks[0];
+            rankBadge.innerText = currentRank.name;
+            rankBadge.className = `mt-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase border ${currentRank.bg} ${currentRank.color} border-current transition-all duration-300`;
+
+            let lengthMultiplier = 1 + (state.level * 0.02);
+            let widthMultiplier = 4 + (state.level * 0.4);
+            let tipX = 30 + (45 * lengthMultiplier);
+            let tipY = 70 - (45 * lengthMultiplier);
+            swordBlade.setAttribute('d', `M30 70 L${tipX} ${tipY}`);
+            bladeCore.setAttribute('d', `M30 70 L${tipX} ${tipY}`);
+            swordBlade.setAttribute('stroke-width', widthMultiplier);
+            
+            let hue = (state.level * 12) % 360;
+            if (state.level === 0) {
+                swordBlade.setAttribute('stroke', '#ffffff');
+                bladeCore.setAttribute('stroke', 'transparent');
+            } else {
+                swordBlade.setAttribute('stroke', `hsl(${hue}, 80%, 70%)`);
+                bladeCore.setAttribute('stroke', `hsl(${hue}, 100%, 90%)`);
+            }
+
+            swordSvg.classList.remove('glow-low', 'glow-mid', 'glow-high', 'glow-god');
+            if (state.level >= 30) swordSvg.classList.add('glow-god');
+            else if (state.level >= 20) swordSvg.classList.add('glow-high');
+            else if (state.level >= 10) swordSvg.classList.add('glow-mid');
+            else if (state.level >= 5) swordSvg.classList.add('glow-low');
+
+            enhanceBtn.disabled = state.gold < info.cost;
+            sellBtn.disabled = state.level === 0;
+            buyShopBtn.disabled = state.gold < SHOP_PRICE;
+            buyBuildingBtn.disabled = state.gold < BUILDING_PRICE;
+            buyHighriseBtn.disabled = state.gold < HIGHRISE_PRICE;
+
+            if (state.buildings > 0 || state.smallShops > 0 || state.highrises > 0) {
+                buildingStat.classList.remove('hidden');
+                buildingCount.innerText = `상가 ${state.smallShops} | 빌딩 ${state.buildings} | 고층 ${state.highrises}`;
+                
+                if (state.highrises > 0) {
+                    rankBadge.innerText = "도시의 소유주";
+                    rankBadge.className = `mt-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase border bg-purple-500/20 text-purple-400 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all duration-300`;
+                } else if (state.buildings > 0) {
+                    rankBadge.innerText = "부동산 재벌";
+                    rankBadge.className = `mt-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase border bg-emerald-500/20 text-emerald-400 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300`;
+                } else if (state.smallShops > 0) {
+                    rankBadge.innerText = "자산가";
+                    rankBadge.className = `mt-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase border bg-blue-500/20 text-blue-400 border-blue-500 transition-all duration-300`;
+                }
+            }
+        }
+
+        function createParticles(x, y, colorArr) {
+            const particleCount = 20;
+            for (let i = 0; i < particleCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const size = Math.random() * 8 + 4;
+                const tx = (Math.random() - 0.5) * 400;
+                const ty = (Math.random() - 0.5) * 400;
+                const tr = Math.random() * 720;
+                p.style.width = `${size}px`;
+                p.style.height = `${size}px`;
+                p.style.backgroundColor = colorArr[Math.floor(Math.random() * colorArr.length)];
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                p.style.setProperty('--tx', `${tx}px`);
+                p.style.setProperty('--ty', `${ty}px`);
+                p.style.setProperty('--tr', `${tr}90deg`);
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 600);
+            }
+        }
+
+        function showLog(msg, type = 'info') {
+            const colors = {
+                info: 'text-slate-400',
+                success: 'text-green-400 scale-105',
+                fail: 'text-red-500',
+                warn: 'text-yellow-400',
+                building: 'text-emerald-400 font-black',
+                legendary: 'text-purple-400 font-black scale-110'
+            };
+            logContainer.innerHTML = msg;
+            logContainer.className = `mt-6 h-12 flex items-center justify-center text-center px-6 text-sm font-bold leading-tight transition-all duration-200 ${colors[type]}`;
+        }
+
+        enhanceBtn.addEventListener('click', () => {
+            const info = getEnhanceInfo(state.level);
+            if (state.gold < info.cost) return;
+
+            state.gold -= info.cost;
+            const roll = Math.random() * 100;
+
+            if (roll < info.chance) {
+                state.level++;
+                showLog(`강화 성공! +${state.level} 단계를 달성했습니다!`, "success");
+                swordSvg.style.filter = "brightness(3) contrast(1.5)";
+                setTimeout(() => swordSvg.style.filter = "", 300);
+            } else {
+                const rect = swordSvg.getBoundingClientRect();
+                createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, ['#ef4444', '#7f1d1d']);
+                state.level = 1; 
+                showLog("강화 실패!! 무기가 파괴되어 1단계로 하락했습니다.", "fail");
+                document.body.classList.add('shake');
+                setTimeout(() => document.body.classList.remove('shake'), 400);
+            }
+            updateUI();
+        });
+
+        sellBtn.addEventListener('click', () => {
+            if (state.level === 0) return;
+            const val = getSellValue(state.level);
+            state.gold += val;
+            const oldLv = state.level;
+            state.level = 0;
+            showLog(`+${oldLv} 무기를 판매하여 ${formatFullGold(val)} G를 획득했습니다!`, "warn");
+            updateUI();
+        });
+
+        shopBtn.addEventListener('click', () => shopModal.classList.remove('hidden'));
+        closeShop.addEventListener('click', () => shopModal.classList.add('hidden'));
+        
+        buyBuildingBtn.addEventListener('click', () => {
+            if (state.gold < BUILDING_PRICE) return;
+            state.gold -= BUILDING_PRICE;
+            state.buildings++;
+            showLog(`🎉 축하합니다! 빌딩을 구매하여 부동산 재벌이 되었습니다!`, "building");
+            createParticles(window.innerWidth/2, window.innerHeight/2, ['#10b981', '#34d399', '#ffffff']);
+            updateUI();
+            shopModal.classList.add('hidden');
+        });
+
+        buyShopBtn.addEventListener('click', () => {
+            if (state.gold < SHOP_PRICE) return;
+            state.gold -= SHOP_PRICE;
+            state.smallShops++;
+            showLog(`🛍️ 축하합니다! 작은 상가를 구매하여 자산가가 되었습니다!`, "success");
+            createParticles(window.innerWidth/2, window.innerHeight/2, ['#3b82f6', '#60a5fa', '#ffffff']);
+            updateUI();
+            shopModal.classList.add('hidden');
+        });
+
+        buyHighriseBtn.addEventListener('click', () => {
+            if (state.gold < HIGHRISE_PRICE) return;
+            state.gold -= HIGHRISE_PRICE;
+            state.highrises++;
+            showLog(`🏙️ 위대한 성취! 15층 고층 빌딩의 주인이 되어 도시를 상징하게 되었습니다!`, "legendary");
+            createParticles(window.innerWidth/2, window.innerHeight/2, ['#a855f7', '#d8b4fe', '#ffffff', '#eab308']);
+            updateUI();
+            shopModal.classList.add('hidden');
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
